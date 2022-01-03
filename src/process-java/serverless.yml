@@ -1,0 +1,70 @@
+service: process-order-service
+
+frameworkVersion: '2'
+configValidationMode: warn
+
+provider:
+  name: aws
+  region: ${opt:region, 'eu-west-1'}
+  stage: ${opt:stage, 'dev'}
+
+  logRetentionInDays: 7
+  lambdaHashingVersion: "20201221"
+
+  tracing:
+    lambda: true
+
+package:
+  artifact: './target/lambda.zip'
+
+functions:
+  process:
+    handler: com.drissamri.AddOrderLambda::handleRequest
+    runtime: java11
+    memorySize: 3072
+    timeout: 15
+    events:
+      - sqs: 'arn:aws:sqs:eu-west-1:956778177063:ingest-order-service-dev-OrderQueue-YES3HBOP5C58'
+    destinations:
+      onSuccess: 'arn:aws:sqs:eu-west-1:956778177063:report-success-queue'
+    environment:
+      TABLE: !Ref OrderTable
+      JAVA_TOOL_OPTIONS: '-Djdk.attach.allowAttachSelf=true'
+      LUMIGO_DEBUG: TRUE
+
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource:
+          - !GetAtt OrderTable.Arn
+      - Effect: Allow
+        Action:
+          - sqs:ListQueues
+          - sqs:GetQueueAttributes
+          - sqs:ReceiveMessage
+        Resource: 'arn:aws:sqs:eu-west-1:956778177063:ingest-order-service-dev-OrderQueue-YES3HBOP5C58'
+
+resources:
+  Resources:
+    OrderTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: name
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+          - AttributeName: name
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+
+plugins:
+  - serverless-iam-roles-per-function

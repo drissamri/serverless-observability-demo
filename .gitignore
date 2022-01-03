@@ -1,0 +1,8 @@
+.idea
+.package-lock.json
+.serverless
+node_modules/
+
+build/
+target/
+.mvn

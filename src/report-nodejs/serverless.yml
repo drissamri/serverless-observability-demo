@@ -1,0 +1,24 @@
+service: report-order-service
+
+frameworkVersion: '2'
+configValidationMode: warn
+
+provider:
+  name: aws
+  region: ${opt:region, 'eu-west-1'}
+  stage: ${opt:stage, 'dev'}
+
+  eventBridge:
+    useCloudFormation: true
+  lambdaHashingVersion: 20201221
+  logRetentionInDays: 7
+
+  tracing:
+    lambda: true
+
+functions:
+  create:
+    runtime: nodejs14.x
+    handler: app.lambdaHandler
+    events:
+      - stream: arn:aws:dynamodb:eu-west-1:956778177063:table/process-order-service-dev-OrderTable-AM4XUN9RH1Z0/stream/2021-12-09T13:29:28.026

@@ -1,0 +1,50 @@
+service: ingest-order-service
+
+frameworkVersion: '2'
+configValidationMode: warn
+
+provider:
+  name: aws
+  region: ${opt:region, 'eu-west-1'}
+  stage: ${opt:stage, 'dev'}
+
+  lambdaHashingVersion: 20201221
+  logRetentionInDays: 7
+
+  tracing:
+    apiGateway: true
+    lambda: true
+
+package:
+  individually: true
+
+functions:
+  create:
+    runtime: python3.9
+    handler: lambda.handler
+    module: src/create-order
+    events:
+      - http:
+          path: /order
+          method: GET
+
+    environment:
+      QUEUE_URL: !Ref OrderQueue
+
+    iamRoleStatements:
+        - Effect: 'Allow'
+          Resource:
+            Fn::GetAtt:
+              - OrderQueue
+              - Arn
+          Action:
+              - 'sqs:SendMessage'
+
+resources:
+  Resources:
+    OrderQueue:
+      Type: AWS::SQS::Queue
+
+plugins:
+  - serverless-python-requirements
+  - serverless-iam-roles-per-function
